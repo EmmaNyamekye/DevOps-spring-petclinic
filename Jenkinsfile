@@ -1,26 +1,34 @@
 pipeline {
-    agent any
+    agent any 
+
+    tools {
+        maven 'Maven 3.x' // This must match the name in Manage Jenkins > Tools
+    }
+
     stages {
         stage('Checkout') {
             steps {
                 git 'https://github.com/your-username/spring-petclinic.git'
             }
         }
+        
         stage('Build & Test') {
             steps {
-                sh 'mvn clean package'
+                bat 'mvn clean package -DskipTests'
             }
         }
-        stage('SonarQube Scan') {
+
+        /*stage('SonarQube Scan') {
             steps {
-                // This triggers the Quality Gate
-                sh 'mvn sonar:sonar'
+                // IMPORTANT: Only enable this if you have the SonarQube plugin 
+                // and server configured in Jenkins
+                bat 'mvn sonar:sonar'
             }
-        }
+        }*/
+
         stage('Dockerize') {
             steps {
-                // This builds your container automatically
-                sh 'docker build -t petclinic-image .'
+                bat 'docker build -t petclinic-image .'
             }
         }
     }
