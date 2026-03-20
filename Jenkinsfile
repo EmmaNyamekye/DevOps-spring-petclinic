@@ -85,7 +85,7 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 echo '=== Running unit tests ==='
-                bat 'mvn test -Dexclude=**/PostgresIntegrationTests.java'
+                bat 'mvn test -Dexcludes=**/PostgresIntegrationTests.java'
             }
             post {
                 always {
