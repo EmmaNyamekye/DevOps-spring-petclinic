@@ -85,7 +85,7 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 echo '=== Running unit tests ==='
-                bat 'mvn test -Dexcludes=**/PostgresIntegrationTests.java'
+                bat 'mvn test -Dspring.docker.compose.skip.in-tests=true'
             }
             post {
                 always {
