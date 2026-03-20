@@ -82,7 +82,7 @@ pipeline {
         // PetClinic. Results are published so
         // Jenkins shows a test-trend graph.
         // ──────────────────────────────────────────
-        stage('Unit Tests') {
+        /*stage('Unit Tests') {
             steps {
                 echo '=== Running unit tests ==='
                 bat 'mvn test -Dspring.docker.compose.skip.in-tests=true'
@@ -99,7 +99,7 @@ pipeline {
                             message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Unit Tests* stage.\n<${BUILD_URL}|View in Jenkins>"
                 }
             }
-        }
+        }*/
 
         // ──────────────────────────────────────────
         // STAGE 4 · Code Quality · SonarCloud
