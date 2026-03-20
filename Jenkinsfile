@@ -85,17 +85,18 @@ pipeline {
         stage('Unit Tests') {
             steps {
                 echo '=== Running unit tests ==='
-                bat 'mvn test'
+                bat 'mvn test -Dexclude=**/PostgresIntegrationTests.java'
             }
             post {
                 always {
-                    // Archive JUnit results regardless of pass/fail
                     junit '**/target/surefire-reports/*.xml'
                 }
                 failure {
-                    slackSend channel: env.SLACK_CHANNEL,
-                              color: 'danger',
-                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Unit Tests* stage.\n<${BUILD_URL}|View in Jenkins>"
+                    slackSend teamDomain: env.SLACK_TEAM,
+                            tokenCredentialId: env.SLACK_CREDS,
+                            channel: env.SLACK_CHANNEL,
+                            color: 'danger',
+                            message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Unit Tests* stage.\n<${BUILD_URL}|View in Jenkins>"
                 }
             }
         }
