@@ -1,0 +1,83 @@
+---
+# ─────────────────────────────────────────────────
+# ansible/playbook.yml
+# Configures the EC2 instance for running the
+# Spring PetClinic Docker container.
+# Runs after Terraform provisions the instance.
+# ─────────────────────────────────────────────────
+
+- name: Configure PetClinic EC2 Server
+  hosts: petclinic
+  become: yes          # run tasks as root (sudo)
+  gather_facts: yes
+
+  vars:
+    app_port: 8080
+    docker_compose_version: "2.24.0"
+
+  tasks:
+
+    # ── System Update ──────────────────────────────
+    - name: Update all system packages
+      yum:
+        name: "*"
+        state: latest
+        update_cache: yes
+
+    # ── Install Docker ─────────────────────────────
+    - name: Install Docker
+      yum:
+        name: docker
+        state: present
+
+    - name: Start and enable Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: yes
+
+    - name: Add ec2-user to docker group
+      user:
+        name: ec2-user
+        groups: docker
+        append: yes
+
+    # ── Install Docker Compose ─────────────────────
+    - name: Install Docker Compose
+      get_url:
+        url: "https://github.com/docker/compose/releases/download/v{{ docker_compose_version }}/docker-compose-linux-x86_64"
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    # ── Open Firewall Port ─────────────────────────
+    - name: Allow port 8080 through firewall
+      firewalld:
+        port: "{{ app_port }}/tcp"
+        permanent: yes
+        state: enabled
+      ignore_errors: yes    # Amazon Linux 2023 may use iptables instead
+
+    # ── Configure Prometheus Node Exporter ─────────
+    # Exposes system metrics for Grafana dashboards
+    - name: Pull Node Exporter Docker image
+      community.docker.docker_image:
+        name: prom/node-exporter
+        source: pull
+
+    - name: Run Node Exporter container
+      community.docker.docker_container:
+        name: node-exporter
+        image: prom/node-exporter
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "9100:9100"
+
+    # ── Verify ─────────────────────────────────────
+    - name: Verify Docker is running
+      command: docker --version
+      register: docker_version
+
+    - name: Print Docker version
+      debug:
+        msg: "Docker installed: {{ docker_version.stdout }}"

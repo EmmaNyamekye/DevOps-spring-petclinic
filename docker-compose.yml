@@ -1,21 +1,83 @@
+# ─────────────────────────────────────────────────
+# docker-compose.yml
+# Runs the full monitoring stack locally:
+#   · Spring PetClinic (the app)
+#   · Prometheus (metrics scraping)
+#   · Grafana (dashboards)
+# Use: docker-compose up -d
+# ─────────────────────────────────────────────────
+
+version: '3.8'
+
 services:
-  mysql:
-    image: mysql:9.5
+
+  # ── Application ─────────────────────────────────
+  petclinic:
+    image: your-dockerhub-username/spring-petclinic:latest   # ← change username
+    container_name: petclinic-app
     ports:
-      - "3306:3306"
-    environment:
-      - MYSQL_ROOT_PASSWORD=
-      - MYSQL_ALLOW_EMPTY_PASSWORD=true
-      - MYSQL_USER=petclinic
-      - MYSQL_PASSWORD=petclinic
-      - MYSQL_DATABASE=petclinic
+      - "8080:8080"
+    restart: unless-stopped
+    networks:
+      - monitoring
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Prometheus ──────────────────────────────────
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
     volumes:
-      - "./conf.d:/etc/mysql/conf.d:ro"
-  postgres:
-    image: postgres:18.1
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.retention.time=15d'
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # ── Grafana ─────────────────────────────────────
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
     ports:
-      - "5432:5432"
+      - "3000:3000"
     environment:
-      - POSTGRES_PASSWORD=petclinic
-      - POSTGRES_USER=petclinic
-      - POSTGRES_DB=petclinic
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin123   # ← change in production!
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+  # ── Node Exporter ───────────────────────────────
+  # Exposes host OS metrics (CPU, RAM, disk) to Prometheus
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    restart: unless-stopped
+    networks:
+      - monitoring
+
+networks:
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

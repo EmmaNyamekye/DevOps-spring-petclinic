@@ -1,0 +1,27 @@
+# ─────────────────────────────────────────────────
+# monitoring/prometheus.yml
+# Tells Prometheus what to scrape and how often.
+# ─────────────────────────────────────────────────
+
+global:
+  scrape_interval:     15s   # Scrape every 15 seconds
+  evaluation_interval: 15s   # Evaluate rules every 15 seconds
+
+scrape_configs:
+
+  # ── Prometheus itself ────────────────────────────
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # ── Spring PetClinic (Spring Actuator metrics) ───
+  - job_name: 'petclinic'
+    metrics_path: '/actuator/prometheus'
+    static_configs:
+      - targets: ['petclinic:8080']   # Docker service name
+    scrape_interval: 10s
+
+  # ── Node Exporter (Host OS metrics) ─────────────
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
