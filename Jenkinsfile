@@ -72,13 +72,14 @@ pipeline {
         stage('Code Quality (SonarCloud)') {
             steps {
                 echo '=== Running SonarCloud analysis ==='
-                bat """
-                    mvn sonar:sonar ^
-                        -Dsonar.projectKey=%SONAR_PROJECT% ^
-                        -Dsonar.organization=%SONAR_ORG% ^
-                        -Dsonar.host.url=https://sonarcloud.io ^
-                        -Dsonar.login=%SONAR_TOKEN%
-                """
+                withCredentials([string(credentialsId: 'sonarcloud-token-creds', variable: 'SONAR_TOKEN')]) {
+                    bat """
+                        mvn sonar:sonar ^
+                            -Dsonar.projectKey=%SONAR_PROJECT% ^
+                            -Dsonar.organization=%SONAR_ORG% ^
+                            -Dsonar.host.url=https://sonarcloud.io ^
+                            -Dsonar.login=%SONAR_TOKEN%
+                    """
             }
             post {
                 failure {
