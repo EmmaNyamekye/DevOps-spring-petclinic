@@ -125,9 +125,10 @@ pipeline {
         stage('Smoke Test') {
             steps {
                 echo '=== Running smoke test ==='
-                retry(5) {
-                    sleep(time: 15, unit: 'SECONDS')
-                    // Checks if the app is actually responding on port 9090
+                // Increased wait time and retries to allow Spring Boot to start
+                retry(10) { 
+                    echo 'Waiting for PetClinic to start...'
+                    sleep(time: 20, unit: 'SECONDS') 
                     bat 'curl --fail http://localhost:9090'
                 }
             }
