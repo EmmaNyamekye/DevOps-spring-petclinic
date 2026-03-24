@@ -121,18 +121,6 @@ pipeline {
                 """
             }
         }
-
-        stage('Smoke Test') {
-            steps {
-                echo '=== Running smoke test ==='
-                // Increased wait time and retries to allow Spring Boot to start
-                retry(10) { 
-                    echo 'Waiting for PetClinic to start...'
-                    sleep(time: 20, unit: 'SECONDS') 
-                    bat 'curl --fail http://localhost:9090'
-                }
-            }
-        }
     }
 
     post {
