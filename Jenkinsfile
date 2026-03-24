@@ -11,7 +11,7 @@ pipeline {
         DOCKER_CREDS    = 'docker-hub-token-creds'
         SONAR_ORG       = 'emmanyamekye'
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
-        SONAR_TOKEN     = credentials('sonarcloud-token-creds')
+        // Note: SONAR_TOKEN is handled inside the stage for better Windows compatibility
         SLACK_CHANNEL   = '#all-devops-spring-petclinic'
         SLACK_TEAM      = 'devopsspringp-u4e1976'
         SLACK_CREDS     = 'slack-token-creds'
@@ -80,7 +80,8 @@ pipeline {
                             -Dsonar.host.url=https://sonarcloud.io ^
                             -Dsonar.login=%SONAR_TOKEN%
                     """
-            }
+                }
+            } // This was the missing closing bracket for 'steps'
             post {
                 failure {
                     slackSend teamDomain: env.SLACK_TEAM,
@@ -184,7 +185,6 @@ pipeline {
                 }
             }
         }
-
     }
 
     post {
@@ -200,5 +200,4 @@ pipeline {
             cleanWs()
         }
     }
-
 }
