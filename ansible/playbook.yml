@@ -12,7 +12,7 @@
   gather_facts: yes
 
   vars:
-    app_port: 8080
+    app_port: 9090
     docker_compose_version: "2.24.0"
 
   tasks:
@@ -50,7 +50,7 @@
         mode: '0755'
 
     # ── Open Firewall Port ─────────────────────────
-    - name: Allow port 8080 through firewall
+    - name: Allow port 9090 through firewall
       firewalld:
         port: "{{ app_port }}/tcp"
         permanent: yes

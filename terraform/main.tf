@@ -50,8 +50,8 @@ resource "aws_security_group" "petclinic_sg" {
 
   # Application port
   ingress {
-    from_port   = 8080
-    to_port     = 8080
+    from_port   = 9090
+    to_port     = 9090
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -119,5 +119,5 @@ output "instance_public_dns" {
 
 output "app_url" {
   description = "URL to access the deployed application"
-  value       = "http://${aws_eip.petclinic_eip.public_ip}:8080"
+  value       = "http://${aws_eip.petclinic_eip.public_ip}:9090"
 }

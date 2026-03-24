@@ -149,7 +149,7 @@ pipeline {
                     docker rm   petclinic-app 2>nul || echo No old container to remove
                     docker run -d ^
                         --name petclinic-app ^
-                        -p 8080:8080 ^
+                        -p 9090:9090 ^
                         --restart unless-stopped ^
                         %IMAGE_NAME%:%IMAGE_TAG%
                 """
@@ -170,7 +170,7 @@ pipeline {
                 echo '=== Running smoke test ==='
                 retry(5) {
                     sleep(time: 15, unit: 'SECONDS')
-                    bat 'curl --fail http://localhost:8080/actuator/health'
+                    bat 'curl --fail http://localhost:9090/actuator/health'
                 }
             }
             post {
@@ -192,7 +192,7 @@ pipeline {
                       tokenCredentialId: env.SLACK_CREDS,
                       channel: env.SLACK_CHANNEL,
                       color: 'good',
-                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed successfully!\nApp: http://localhost:8080\n<${BUILD_URL}|View in Jenkins>"
+                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed successfully!\nApp: http://localhost:9090\n<${BUILD_URL}|View in Jenkins>"
         }
         always {
             bat 'docker image prune -f || echo Pruning skipped'

@@ -34,11 +34,11 @@ USER petclinic
 COPY --from=builder /app/target/*.jar app.jar
 
 # Expose the default Spring Boot port
-EXPOSE 8080
+EXPOSE 9090
 
 # Health check – Docker will mark container unhealthy
 # if the actuator endpoint stops responding
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget -qO- http://localhost:8080/actuator/health || exit 1
+    CMD wget -qO- http://localhost:9090/actuator/health || exit 1
 
 ENTRYPOINT ["java", "-jar", "app.jar"]
