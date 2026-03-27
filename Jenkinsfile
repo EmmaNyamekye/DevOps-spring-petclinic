@@ -11,6 +11,11 @@ pipeline {
         DOCKER_CREDS    = 'docker-hub-token-creds'
         SONAR_ORG       = 'emmanyamekye'
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
+
+        // ADDED ASW
+        AWS_IP          = '51.20.79.252'
+        AWS_SSH_ID      = 'aws-ssh-key'
+
         SLACK_CHANNEL   = '#all-devops-spring-petclinic'
         SLACK_TEAM      = 'devopsspringp-u4e1976'
         SLACK_CREDS     = 'slack-token-creds'
@@ -107,22 +112,22 @@ pipeline {
             }
         }
 
-        stage('Deploy (Local Docker)') {
+        stage('Deploy to AWS Cloud') {
             steps {
-                echo '=== Deploying container locally ==='
-                bat """
-                    docker stop petclinic-app 2>nul || echo No old container to stop
-                    docker rm   petclinic-app 2>nul || echo No old container to remove
-                    docker run -d ^
-                        --name petclinic-app ^
-                        -p 9090:9090 ^
-                        --restart unless-stopped ^
-                        %IMAGE_NAME%:%IMAGE_TAG%
-                """
+                echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
+                sshagent([env.AWS_SSH_ID]) {
+                    // We use sh because the target AWS server is Linux
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} "
+                            docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
+                            docker stop petclinic-app || true &&
+                            docker rm petclinic-app || true &&
+                            docker run -d --name petclinic-app -p 9090:9090 ${IMAGE_NAME}:${IMAGE_TAG}
+                        "
+                    """
+                }
             }
         }
-
-    }
 
     post {
         success {
@@ -135,6 +140,23 @@ pipeline {
         always {
             bat 'docker image prune -f || echo Pruning skipped'
             cleanWs()
+        }
+    }
+
+    stage('Smoke Test') {
+        steps {
+            script {
+                try {
+                    echo '=== Verifying AWS Cloud Deployment ==='
+                    retry(5) {
+                        sleep(time: 30, unit: 'SECONDS')
+                        bat "curl --fail http://${AWS_IP}:9090"
+                    }
+                } catch (Exception e) {
+                    echo "WARNING: Smoke test failed, but continuing pipeline. Check Security Groups."
+                    currentBuild.result = 'UNSTABLE'
+                }
+            }
         }
     }
 }
