@@ -94,7 +94,7 @@ pipeline {
                 echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
                 sshagent([env.AWS_SSH_ID]) {
                     sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} "
+                        ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null ubuntu@${AWS_IP} "
                             docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
                             docker stop petclinic-app || true &&
                             docker rm petclinic-app || true &&
