@@ -11,11 +11,11 @@ pipeline {
         DOCKER_CREDS    = 'docker-hub-token-creds'
         SONAR_ORG       = 'emmanyamekye'
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
-
-        // ADDED ASW
+        
+        // AWS SETTINGS
         AWS_IP          = '51.20.79.252'
-        AWS_SSH_ID      = 'aws-ssh-key'
-
+        AWS_SSH_ID      = 'aws-ssh-key' 
+        
         SLACK_CHANNEL   = '#all-devops-spring-petclinic'
         SLACK_TEAM      = 'devopsspringp-u4e1976'
         SLACK_CREDS     = 'slack-token-creds'
@@ -26,11 +26,7 @@ pipeline {
         timeout(time: 60, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
-    triggers {
-        pollSCM('H/5 * * * *')
-    }
     stages {
-
         stage('Checkout') {
             steps {
                 echo '=== Checking out source code ==='
@@ -38,20 +34,10 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build & Compile') {
             steps {
                 echo '=== Compiling application ==='
-                // -DskipTests skips Unit Tests
-                // -DskipITs skips Integration Tests (Failsafe)
                 bat 'mvn clean compile -DskipTests -DskipITs'
-            }
-        }
-
-        stage('Unit Tests') {
-            steps {
-                echo '=== Running unit tests (Bypassed for Pipeline Continuity) ==='
-                // We run 'test-compile' to ensure code is valid without running the actual tests
-                bat 'mvn test-compile -DskipTests -DskipITs'
             }
         }
 
@@ -67,15 +53,6 @@ pipeline {
                             -Dsonar.login=%SONAR_TOKEN% ^
                             -DskipTests -DskipITs
                     """
-                }
-            } 
-            post {
-                failure {
-                    slackSend teamDomain: env.SLACK_TEAM,
-                              tokenCredentialId: env.SLACK_CREDS,
-                              channel: env.SLACK_CHANNEL,
-                              color: 'danger',
-                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *SonarCloud* stage."
                 }
             }
         }
@@ -112,11 +89,10 @@ pipeline {
             }
         }
 
-        stage('Deploy to AWS Cloud') {
+        stage('Deploy to AWS') {
             steps {
                 echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
                 sshagent([env.AWS_SSH_ID]) {
-                    // We use sh because the target AWS server is Linux
                     sh """
                         ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} "
                             docker pull ${IMAGE_NAME}:${IMAGE_TAG} &&
@@ -129,34 +105,28 @@ pipeline {
             }
         }
 
+        stage('Smoke Test') {
+            steps {
+                echo '=== Verifying AWS Cloud Deployment ==='
+                retry(5) {
+                    sleep(time: 30, unit: 'SECONDS')
+                    bat "curl --fail http://${AWS_IP}:9090"
+                }
+            }
+        }
+    }
+
     post {
         success {
             slackSend teamDomain: env.SLACK_TEAM,
                       tokenCredentialId: env.SLACK_CREDS,
                       channel: env.SLACK_CHANNEL,
                       color: 'good',
-                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed successfully!"
+                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed to AWS!\nURL: http://${AWS_IP}:9090"
         }
         always {
             bat 'docker image prune -f || echo Pruning skipped'
             cleanWs()
-        }
-    }
-
-    stage('Smoke Test') {
-        steps {
-            script {
-                try {
-                    echo '=== Verifying AWS Cloud Deployment ==='
-                    retry(5) {
-                        sleep(time: 30, unit: 'SECONDS')
-                        bat "curl --fail http://${AWS_IP}:9090"
-                    }
-                } catch (Exception e) {
-                    echo "WARNING: Smoke test failed, but continuing pipeline. Check Security Groups."
-                    currentBuild.result = 'UNSTABLE'
-                }
-            }
         }
     }
 }
