@@ -92,12 +92,14 @@ pipeline {
         stage('Deploy to AWS') {
             steps {
                 echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
+                // This ID must match the ID you gave your credentials in Jenkins
                 sshagent([env.AWS_SSH_ID]) {
                     script {
-                        // This logic handles the Windows-to-Linux SSH command correctly
+                        // We define the command exactly like the lecturer's example
                         def remoteCmd = "docker pull ${IMAGE_NAME}:${IMAGE_TAG} && docker stop petclinic-app || true && docker rm petclinic-app || true && docker run -d --name petclinic-app -p 9090:9090 ${IMAGE_NAME}:${IMAGE_TAG}"
                         
-                        // We wrap the SSH command in double quotes for Windows 'bat' execution
+                        // We use the -o StrictHostKeyChecking=no to prevent the "yes/no" prompt
+                        // We use double quotes for the whole string so Windows 'bat' handles it correctly
                         bat "ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} \"${remoteCmd}\""
                     }
                 }
