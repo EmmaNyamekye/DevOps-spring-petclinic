@@ -12,7 +12,7 @@ pipeline {
         SONAR_ORG       = 'emmanyamekye'
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
         
-        // UPDATED AWS SETTINGS
+        // UPDATED AWS IP
         AWS_IP          = '51.21.255.209'
         AWS_SSH_ID      = 'aws-ssh-key' 
         
@@ -92,15 +92,13 @@ pipeline {
         stage('Deploy to AWS') {
             steps {
                 echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
-                // This ID must match the ID you gave your credentials in Jenkins
                 sshagent([env.AWS_SSH_ID]) {
                     script {
-                        // We define the command exactly like the lecturer's example
+                        // The command we want to run on the Linux server
                         def remoteCmd = "docker pull ${IMAGE_NAME}:${IMAGE_TAG} && docker stop petclinic-app || true && docker rm petclinic-app || true && docker run -d --name petclinic-app -p 9090:9090 ${IMAGE_NAME}:${IMAGE_TAG}"
                         
-                        // We use the -o StrictHostKeyChecking=no to prevent the "yes/no" prompt
-                        // We use double quotes for the whole string so Windows 'bat' handles it correctly
-                        bat "ssh -o StrictHostKeyChecking=no ubuntu@${AWS_IP} \"${remoteCmd}\""
+                        // Using the full path to Git's SSH to ensure compatibility with sshagent
+                        bat "\"C:\\Program Files\\Git\\usr\\bin\\ssh.exe\" -o StrictHostKeyChecking=no ubuntu@${AWS_IP} \"${remoteCmd}\""
                     }
                 }
             }
@@ -111,7 +109,6 @@ pipeline {
                 script {
                     try {
                         echo '=== Verifying AWS Cloud Deployment ==='
-                        // Give the app 60s to start up on EC2
                         sleep(time: 60, unit: 'SECONDS')
                         retry(5) {
                             sleep(time: 20, unit: 'SECONDS')
