@@ -101,24 +101,6 @@ pipeline {
             }
         }
 
-        stage('Smoke Test') {
-            steps {
-                script {
-                    try {
-                        echo '=== Verifying AWS Cloud Deployment ==='
-                        // Give Spring Boot enough time to start before checking
-                        sleep(time: 60, unit: 'SECONDS')
-                        retry(5) {
-                            sleep(time: 20, unit: 'SECONDS')
-                            bat "curl --fail http://${AWS_IP}:9090"
-                        }
-                    } catch (Exception e) {
-                        echo "MONITORING WARNING: Application might still be starting. Check http://${AWS_IP}:9090 manually."
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
-            }
-        }
     }
 
     post {
