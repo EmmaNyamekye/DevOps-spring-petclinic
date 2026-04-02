@@ -55,6 +55,13 @@ pipeline {
 
         stage('Unit Tests') {
             steps {
+                // Start the Postgres and MySQL containers that
+                // PostgresIntegrationTests requires before running tests.
+                // docker-compose.yml in the repo root is checked out
+                // into the workspace automatically by Jenkins.
+                echo '=== Starting test databases ==='
+                bat 'docker-compose up -d mysql postgres'
+                sleep(time: 15, unit: 'SECONDS')
                 echo '=== Running unit tests ==='
                 bat 'mvn test -DskipITs'
             }
@@ -147,12 +154,6 @@ pipeline {
             }
         }
 
-        // ── Stage 6: Deploy to AWS EC2 ─────────────────
-        // Uses a Secret File credential containing the .pem key.
-        // Pulls the latest image from DockerHub, stops the old
-        // container, and starts a fresh one on port 9090.
-        // Port mapping: 9090 (host) → 8080 (container)
-        // because Spring Boot listens internally on 8080.
         stage('Deploy to AWS') {
             steps {
                 echo "=== Deploying to AWS EC2 (${AWS_IP}) ==="
@@ -186,11 +187,6 @@ pipeline {
             }
         }
 
-        // ── Stage 7: Smoke Test ────────────────────────
-        // Waits for Spring Boot to start on the EC2 instance
-        // then hits the root URL to confirm the app is live.
-        // Marks UNSTABLE rather than FAILED so the build
-        // is still considered a success for reporting purposes.
         stage('Smoke Test') {
             steps {
                 script {
@@ -210,7 +206,7 @@ pipeline {
             }
         }
 
-    } // end stages
+    }
 
     post {
         success {
@@ -221,6 +217,7 @@ pipeline {
                       message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed to AWS!\nURL: http://${AWS_IP}:9090\n<${BUILD_URL}|View in Jenkins>"
         }
         always {
+            bat 'docker-compose down || echo Compose down skipped'
             bat 'docker image prune -f || echo Pruning skipped'
             cleanWs()
         }
