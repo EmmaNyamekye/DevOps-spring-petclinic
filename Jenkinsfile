@@ -11,11 +11,12 @@ pipeline {
         DOCKER_CREDS    = 'docker-hub-token-creds'
         SONAR_ORG       = 'emmanyamekye'
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
-        
-        // UPDATED AWS IP
+
+        // AWS
         AWS_IP          = '51.21.255.209'
-        AWS_SSH_ID      = 'aws-ssh-key' 
-        
+        AWS_SSH_ID      = 'aws-ssh-key'
+
+        // Slack
         SLACK_CHANNEL   = '#all-devops-spring-petclinic'
         SLACK_TEAM      = 'devopsspringp-u4e1976'
         SLACK_CREDS     = 'slack-token-creds'
@@ -26,7 +27,9 @@ pipeline {
         timeout(time: 60, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
+
     stages {
+
         stage('Checkout') {
             steps {
                 echo '=== Checking out source code ==='
@@ -38,6 +41,34 @@ pipeline {
             steps {
                 echo '=== Compiling application ==='
                 bat 'mvn clean compile -DskipTests -DskipITs'
+            }
+            post {
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Build* stage.\n<${BUILD_URL}|View in Jenkins>"
+                }
+            }
+        }
+
+        stage('Unit Tests') {
+            steps {
+                echo '=== Running unit tests ==='
+                bat 'mvn test -DskipITs'
+            }
+            post {
+                always {
+                    junit '**/target/surefire-reports/*.xml'
+                }
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Unit Tests* stage.\n<${BUILD_URL}|View in Jenkins>"
+                }
             }
         }
 
@@ -55,6 +86,15 @@ pipeline {
                     """
                 }
             }
+            post {
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *SonarCloud* stage.\n<${BUILD_URL}|View in Jenkins>"
+                }
+            }
         }
 
         stage('Package') {
@@ -69,6 +109,15 @@ pipeline {
             steps {
                 echo '=== Building Docker image ==='
                 bat "docker build -t %IMAGE_NAME%:%IMAGE_TAG% -t %IMAGE_NAME%:latest ."
+            }
+            post {
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Docker Build* stage.\n<${BUILD_URL}|View in Jenkins>"
+                }
             }
         }
 
@@ -87,41 +136,81 @@ pipeline {
                     """
                 }
             }
-        }
-
-        stage('Deploy to AWS') {
-            steps {
-                echo "=== Deploying to AWS Production Server (${AWS_IP}) ==="
-                sshagent([env.AWS_SSH_ID]) {
-                    script {
-                        // The command we want to run on the Linux server
-                        def remoteCmd = "docker pull ${IMAGE_NAME}:${IMAGE_TAG} && docker stop petclinic-app || true && docker rm petclinic-app || true && docker run -d --name petclinic-app -p 9090:9090 ${IMAGE_NAME}:${IMAGE_TAG}"
-                        
-                        // Using the full path to Git's SSH to ensure compatibility with sshagent
-                        bat "\"C:\\Program Files\\Git\\usr\\bin\\ssh.exe\" -o StrictHostKeyChecking=no ubuntu@${AWS_IP} \"${remoteCmd}\""
-                    }
+            post {
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *DockerHub Push* stage.\n<${BUILD_URL}|View in Jenkins>"
                 }
             }
         }
 
+        // ── Stage 6: Deploy to AWS EC2 ─────────────────
+        // Uses a Secret File credential containing the .pem key.
+        // Pulls the latest image from DockerHub, stops the old
+        // container, and starts a fresh one on port 9090.
+        // Port mapping: 9090 (host) → 8080 (container)
+        // because Spring Boot listens internally on 8080.
+        stage('Deploy to AWS') {
+            steps {
+                echo "=== Deploying to AWS EC2 (${AWS_IP}) ==="
+                withCredentials([file(credentialsId: env.AWS_SSH_ID, variable: 'KEY_FILE')]) {
+                    script {
+                        def remoteCmd = [
+                            "docker pull ${IMAGE_NAME}:${IMAGE_TAG}",
+                            "(docker stop petclinic-app || true)",
+                            "(docker rm   petclinic-app || true)",
+                            "docker run -d --name petclinic-app -p 9090:8080 --restart unless-stopped ${IMAGE_NAME}:${IMAGE_TAG}"
+                        ].join(' && ')
+
+                        bat """
+                            "C:\\Program Files\\Git\\usr\\bin\\ssh.exe" ^
+                                -i "%KEY_FILE%" ^
+                                -o StrictHostKeyChecking=no ^
+                                -o UserKnownHostsFile=/dev/null ^
+                                ubuntu@${AWS_IP} "${remoteCmd}"
+                        """
+                    }
+                }
+            }
+            post {
+                failure {
+                    slackSend teamDomain: env.SLACK_TEAM,
+                              tokenCredentialId: env.SLACK_CREDS,
+                              channel: env.SLACK_CHANNEL,
+                              color: 'danger',
+                              message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Deploy to AWS* stage.\n<${BUILD_URL}|View in Jenkins>"
+                }
+            }
+        }
+
+        // ── Stage 7: Smoke Test ────────────────────────
+        // Waits for Spring Boot to start on the EC2 instance
+        // then hits the root URL to confirm the app is live.
+        // Marks UNSTABLE rather than FAILED so the build
+        // is still considered a success for reporting purposes.
         stage('Smoke Test') {
             steps {
                 script {
                     try {
-                        echo '=== Verifying AWS Cloud Deployment ==='
+                        echo '=== Verifying AWS deployment ==='
                         sleep(time: 60, unit: 'SECONDS')
                         retry(5) {
                             sleep(time: 20, unit: 'SECONDS')
                             bat "curl --fail http://${AWS_IP}:9090"
                         }
+                        echo "✅ App is live at http://${AWS_IP}:9090"
                     } catch (Exception e) {
-                        echo "MONITORING NOTE: App is taking a while to respond. Check http://${AWS_IP}:9090 manually."
+                        echo "⚠️ App may still be starting. Check http://${AWS_IP}:9090 manually."
                         currentBuild.result = 'UNSTABLE'
                     }
                 }
             }
         }
-    }
+
+    } // end stages
 
     post {
         success {
@@ -129,11 +218,12 @@ pipeline {
                       tokenCredentialId: env.SLACK_CREDS,
                       channel: env.SLACK_CHANNEL,
                       color: 'good',
-                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed to AWS!\nURL: http://${AWS_IP}:9090"
+                      message: "✅ *PetClinic* Build #${BUILD_NUMBER} deployed to AWS!\nURL: http://${AWS_IP}:9090\n<${BUILD_URL}|View in Jenkins>"
         }
         always {
             bat 'docker image prune -f || echo Pruning skipped'
             cleanWs()
         }
     }
+
 }
