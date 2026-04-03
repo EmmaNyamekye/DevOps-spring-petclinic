@@ -59,7 +59,7 @@ pipeline {
                 bat 'docker-compose up -d mysql postgres'
                 sleep(time: 15, unit: 'SECONDS')
                 echo '=== Running unit tests ==='
-                bat 'mvn test -DskipITs -Dexclude=**/PostgresIntegrationTests.java'
+                bat 'mvn test -DskipITs -Dexcludes=**/PostgresIntegrationTests.java'
             }
             post {
                 always {
