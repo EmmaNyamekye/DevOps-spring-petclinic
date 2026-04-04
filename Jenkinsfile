@@ -13,7 +13,7 @@ pipeline {
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
 
         // AWS
-        AWS_IP = 'YOUR_NEW_ELASTIC_IP'
+        AWS_IP = '13.63.87.195'
         AWS_SSH_ID      = 'aws-ssh-key'
 
         // Slack
