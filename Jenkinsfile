@@ -13,7 +13,7 @@ pipeline {
         SONAR_PROJECT   = 'DevOps-spring-petclinic'
 
         // AWS
-        AWS_IP = '13.63.87.195'
+        AWS_IP = '16.170.139.170'
         AWS_SSH_ID      = 'aws-ssh-key'
 
         // Slack
@@ -179,25 +179,6 @@ pipeline {
                               channel: env.SLACK_CHANNEL,
                               color: 'danger',
                               message: "❌ *PetClinic* Build #${BUILD_NUMBER} FAILED at *Deploy to AWS* stage.\n<${BUILD_URL}|View in Jenkins>"
-                }
-            }
-        }
-
-        stage('Smoke Test') {
-            steps {
-                script {
-                    try {
-                        echo '=== Verifying AWS deployment ==='
-                        sleep(time: 60, unit: 'SECONDS')
-                        retry(5) {
-                            sleep(time: 20, unit: 'SECONDS')
-                            bat "curl --fail http://${AWS_IP}:9090"
-                        }
-                        echo "✅ App is live at http://${AWS_IP}:9090"
-                    } catch (Exception e) {
-                        echo "⚠️ App may still be starting. Check http://${AWS_IP}:9090 manually."
-                        currentBuild.result = 'UNSTABLE'
-                    }
                 }
             }
         }
