@@ -1,8 +1,6 @@
-# ─────────────────────────────────────────────────
 # terraform/main.tf
 # Provisions a single EC2 instance on AWS to host
 # the Spring PetClinic Docker container.
-# ─────────────────────────────────────────────────
 
 terraform {
   required_version = ">= 1.5.0"
@@ -14,12 +12,12 @@ terraform {
   }
 }
 
-# ── Provider ──────────────────────────────────────
+# Provider
 provider "aws" {
   region = var.aws_region
 }
 
-# ── Variables ─────────────────────────────────────
+# Variables 
 variable "aws_region" {
   description = "AWS region"
   default     = "eu-west-1"   # Ireland – closest to Tralee
@@ -35,7 +33,7 @@ variable "key_name" {
   default     = "petclinic-key"
 }
 
-# ── Security Group ────────────────────────────────
+# Security Group 
 resource "aws_security_group" "petclinic_sg" {
   name        = "petclinic-sg"
   description = "Allow HTTP and SSH access"
@@ -70,7 +68,7 @@ resource "aws_security_group" "petclinic_sg" {
   }
 }
 
-# ── EC2 Instance ──────────────────────────────────
+# EC2 Instance 
 resource "aws_instance" "petclinic" {
   # Amazon Linux 2023 AMI (eu-west-1) – check for latest in your region
   ami                    = "ami-0d64bb532e0502c46"
@@ -94,7 +92,7 @@ resource "aws_instance" "petclinic" {
   }
 }
 
-# ── Elastic IP ────────────────────────────────────
+# Elastic IP 
 # Gives the instance a stable public IP that does
 # not change when the instance is stopped/started.
 resource "aws_eip" "petclinic_eip" {
@@ -106,7 +104,7 @@ resource "aws_eip" "petclinic_eip" {
   }
 }
 
-# ── Outputs ───────────────────────────────────────
+# Outputs 
 output "instance_public_ip" {
   description = "Public IP of the EC2 instance"
   value       = aws_eip.petclinic_eip.public_ip
